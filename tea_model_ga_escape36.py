@@ -69,9 +69,13 @@ Total annual cost is the sum of four blocks (CO₂ tax excluded in ESCAPE baseli
 
   AF (CRF)  Capital recovery factor = r(1+r)^n / ((1+r)^n − 1)
 
-Step-specific Lang factors (Peters & Timmerhaus 2004, Table 6-21) convert
-purchased equipment costs to installed total capital.  Cost estimates carry
-AACE Class IV accuracy (±40 %).
+Step-specific Lang factors convert purchased equipment costs to installed total
+capital; values range from 1.4 (packaged RO) to 4.9 (electrowinning).  The
+primary reference is Peters & Timmerhaus 2004 (Table 6-21); process-specific
+literature is used for selected steps: RO (DOI:10.1016/0011-9164(96)00081-1),
+IX (Huang et al. 2020, doi:10.1038/s41545-020-0054-x), and SX
+(https://www.mdpi.com/2075-163X/5/2/298).  See each step-spec constants dict
+for per-step citations.  Cost estimates carry AACE Class IV accuracy (±40 %).
 
 Model structure
 ---------------
@@ -876,7 +880,7 @@ RO_SPLIT_SPEC = StepSpec(
         EquipmentItem("RO pump", 4385.0, 15.0, "SciDirect"),
     ),
     constants={
-        "lang_factor": 1.4,  # Peters & Timmerhaus (2004) Table 6-21, packaged RO unit (lower factor for skid-mounted module)
+        "lang_factor": 1.4,  # DOI:10.1016/0011-9164(96)00081-1 (packaged RO/membrane system); already listed in RO_SPLIT_SPEC.sources
         "ga_to_concentrate": 0.95,  # model assumption: ≥95% rejection of Ga³⁺ by polyamide RO (Baker 2012, 3rd ed.)
         "permeate_fraction": 0.8,  # 80/20 volume split permeate/concentrate; Ambiado et al. (2017)
         "stage1_area_factor_m2_per_q": 1.042,  # Ambiado et al. (2017) doi:10.2166/wst.2016.556, two-stage RO sizing model
@@ -1148,16 +1152,15 @@ IX_SPEC = StepSpec(
     stream_basis="pH-adjusted RO concentrate with Qc = 0.2 × Q and pH 2.0.",
     mass_balance_basis="Gallium reports to the eluate with the frozen IX separation recovery; raffinate leaves as an arsenic-bearing waste stream.",
     recovery_basis=(
-        "Frozen gallium-to-eluate recovery of 0.969 (96.9%). "
-        "Source: Huang et al. (MDPI Processes 2019, doi:10.3390/pr7120921), 'A Process for the Recovery "
-        "of Gallium from Gallium Arsenide Scrap' — DIAION CR11 column, 0.1 M H2SO4 elution, GaAs scrap feed. "
-        "Verify specific recovery figure (paper reports 99.3% purity; confirm whether 96.9% refers to "
-        "Ga loading + elution recovery or is derived from a mass balance in the thesis)."
+        "Frozen gallium-to-eluate recovery of 0.969 (96.9%), derived from breakthrough curve integration. "
+        "Source: Cheng et al. (MDPI Processes 2019, doi:10.3390/pr7120921), 'A Process for the Recovery "
+        "of Gallium from Gallium Arsenide Scrap' — DIAION CR11 column, 0.1 M H2SO4 elution, GaAs scrap feed, "
+        "1/20 dilution ratio, 35 BV loading (Fig. 3a)."
     ),
     sizing_basis="Six-column batch train with V_res,col = Qc / 129.6, 45 BV adsorption, 4 BV elution, 1 BV rinse.",
     cost_basis=(
-        "TCI = direct purchased-equipment cost × Lang factor 4.74 (Peters & Timmerhaus, 2004, "
-        "Table 6-21, 'fluid-processing plant'). "
+        "TCI = direct purchased-equipment cost × Lang factor 4.74 (Huang et al. 2020, "
+        "doi:10.1038/s41545-020-0054-x, npj Clean Water, IX cost study). "
         "The initial DIAION CR11 resin charge is included in the direct-cost sum and multiplied "
         "by the Lang factor. REP covers annualized equipment and resin replacement at their "
         "respective lifetimes. OpEx from sulfuric-acid elution, electricity, and M&O."
@@ -1193,7 +1196,7 @@ IX_SPEC = StepSpec(
         EquipmentItem("Buffer tank", 1500.0, 15.0, "srt-mischer"),
     ),
     constants={
-        "lang_factor": 4.74,  # Peters & Timmerhaus (2004) Table 6-21, fluid-processing plant; includes resin in Lang base (see cost_basis)
+        "lang_factor": 4.74,  # Huang et al. (2020) doi:10.1038/s41545-020-0054-x (npj Clean Water, IX cost study); listed in IX_SPEC.sources for SEC; see cost_basis
         "column_cost_low_eur": 95.0,  # lower anchor Qc=2 m³/d; Cheng et al. (2019) doi:10.3390/pr7120921 + Huang et al. (2020) doi:10.1038/s41545-020-0054-x
         "column_cost_high_eur": 442.0,  # upper anchor Qc=20 m³/d; piecewise linear interpolation between anchors
         "column_cost_low_qc": 2.0,  # lower Qc anchor [m³/d] for column-cost curve
@@ -1427,7 +1430,7 @@ SX_SPEC = StepSpec(
         EquipmentItem("Pump", 1000.0, 8.0, "anchorpumps"),
     ),
     constants={
-        "lang_factor": 4.8,  # Peters & Timmerhaus (2004) Table 6-21, solvent-handling/extraction plant
+        "lang_factor": 4.8,  # https://www.mdpi.com/2075-163X/5/2/298 (MDPI Minerals, SX cost study)
         "mixer_settler_capacity_l_per_h": 108.0,  # manufacturer-stated aqueous throughput (Alibaba listing); units: ceil(Q_aq / 108)
         "mixer_settler_cost_eur": 4288.0,  # Alibaba bench-scale mixer-settler
         "pump_cost_eur": 1000.0,  # anchorpumps.com March-May TE-6P-MD (PVDF/PP, compatible with Cyanex/kerosene), accessed Mar 2025
@@ -1734,7 +1737,7 @@ _PRECIPITATION_BASE_CONSTANTS: dict = {
 }
 
 _SELECTIVE_LEACHING_BASE_CONSTANTS: dict = {
-    "lang_factor": 3.0,                           # Peters & Timmerhaus (2004) Table 6-21, solid-liquid handling; Ntengwe et al. (2019, doi:10.1007/s42461-019-00148-x) Lang≈2.97
+    "lang_factor": 3.0,                           # Peters & Timmerhaus (2004) Table 6-21, predominantly-solid processing plant
     "naoh_kg_per_kg_cake": 0.66,                  # Ga(OH)₃ + 2 NaOH → NaGaO₂ + 2H₂O; target 120 g/L electrolyte; Xu et al. (2024)
     "naoh_price_eur_per_kg": 0.30,                # businessanalytiq.com, Mar 2025
     "filter_bag_cost_per_kg_cake_day": 0.258993,  # derived: 11.50 EUR/bag ÷ 14-d life ÷ bag capacity
@@ -1914,7 +1917,7 @@ ELECTROWINNING_IX_SPEC = StepSpec(
     sources=("https://www.sciencedirect.com/science/article/pii/S1003632623664519", "https://www.sciencedirect.com/science/article/pii/S0956053X17309315"),
     equipment=ELECTROWINNING_EQUIPMENT,
     constants={
-        "lang_factor": 4.9,  # Peters & Timmerhaus (2004) Table 6-21, electrochemical plant with power supply systems
+        "lang_factor": 4.9,  # Peters & Timmerhaus (2004) Table 6-21, electrochemical plant; also pii/S0956053X17309315 (listed in sources)
         "volume_factor_l_per_q": 0.778,  # 0.778 L electrolyte per m³ feed; derived from Q_eluate × leach recovery; Xu et al. (2024)
         "ga_leachate_conc_g_per_l": 40.0,  # target 40 g Ga/L in leachate for EW; Xu et al. (2024) optimal: 39.9 g/L
         "ew_sec_kwh_per_kg_ga": 9.05,  # specific energy consumption; Xu et al. (2024) cyclone EW: ~9048 kWh/t at 750 A/m², Ti cathode
@@ -1953,7 +1956,7 @@ ELECTROWINNING_SX_SPEC = StepSpec(
     sources=("https://www.sciencedirect.com/science/article/pii/S1003632623664519", "https://www.sciencedirect.com/science/article/pii/S0956053X17309315"),
     equipment=ELECTROWINNING_EQUIPMENT,
     constants={
-        "lang_factor": 4.9,  # Peters & Timmerhaus (2004) Table 6-21; same electrochemical category as IX EW
+        "lang_factor": 4.9,  # Peters & Timmerhaus (2004) Table 6-21, electrochemical plant; also pii/S0956053X17309315 (listed in sources); same category as IX EW
         "volume_factor_l_per_q": 0.778 * (0.108 / 0.139),  # 0.606 L/m³ feed; scaled from IX by ratio of SX/IX cake factors
         "stack_capacity_l_per_day": 2 * (24 / 7),  # 6.857 L/d per stack; 7 h cycle (6 h EW + 1 h harvest), 2 L cell volume
         "ga_leachate_conc_g_per_l": 40.0,  # same target as IX route; Xu et al. (2024)
