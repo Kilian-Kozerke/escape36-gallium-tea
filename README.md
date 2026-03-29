@@ -92,7 +92,7 @@ python scripts/run_all.py
 This generates:
 - `outputs/csv/` — lcoga_vs_q.csv, annual_production.csv, cost_breakdown_by_block.csv,
   cost_breakdown_by_step.csv, q_star.csv
-- `outputs/figures/` — lcoga_vs_q.svg
+- `outputs/figures/` — figure2a_production.svg, figure2b_lcoga.svg, figure3_cost_breakdown.svg
 - `outputs/metadata.json` — baseline configuration and timestamp
 
 ## File Structure
