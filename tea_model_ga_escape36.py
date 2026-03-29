@@ -182,7 +182,7 @@ FEED_BASELINE_TEMPLATE: Mapping[str, Any] = {
     'TSS_mg_L': 30.0,
     'TOC_mg_L': 5.0,
     'TDS_mg_L': 1500.0,
-    'source': 'Jain 2019 (Ga/As/P, Ca/Mg/Fe/Al/Ni); Li 2015 (Na/Cl/SO4); Lu 2010 (TSS); literature reviews (TOC)'
+    'source': 'Jain 2019 (Ga/As/P, Ca/Mg/Fe/Al/Ni); Li 2015 (Na/Cl/SO4, TSS, TDS); literature reviews (TOC)'
 }
 
 VALID_CO2_TAX_MODES: tuple[str, ...] = ("none", "energy_only", "full_lca")
@@ -1398,9 +1398,9 @@ SX_SPEC = StepSpec(
     mass_balance_basis="Gallium partitions first to the loaded organic and then to the strip liquor; raffinate leaves as an arsenic-bearing waste stream.",
     recovery_basis=(
         "Frozen extraction recovery of 0.773 (77.3%) followed by strip recovery of 0.975 (97.5%). "
-        "Extraction recovery source: Ye et al. (MDPI Sustainability 2020, doi:10.3390/su12051765), "
+        "Extraction recovery source: Chen et al. (MDPI Sustainability 2020, doi:10.3390/su12051765), "
         "'Recovery of Gallium from Simulated GaAs Waste Etching Solutions by Solvent Extraction' — "
-        "single-step extraction efficiency of 77.4% using 0.5 M Cyanex 272/kerosene at pH 2, O:A = 0.1. "
+        "single-step extraction efficiency of 77.3% using 0.5 M Cyanex 272/kerosene at pH 2, O:A = 0.1. "
         "Strip recovery 0.975 attributed to back-extraction conditions "
         "(Chen et al. 2020, doi:10.3390/su12051765; IAEA INIS technical report inis.iaea.org/records/c0q3n-1a978)."
     ),
@@ -1412,7 +1412,7 @@ SX_SPEC = StepSpec(
         "The first-in organic inventory is derived from the total SX residence time of 19/60 h.",
     ),
     sources=(
-        # Extraction recovery 77.4%, Cyanex 272 0.5 M, O:A = 0.1, pH 2 (Ye et al. 2020):
+        # Extraction recovery 77.3%, Cyanex 272 0.5 M, O:A = 0.1, pH 2 (Chen et al. 2020):
         "https://www.mdpi.com/2071-1050/12/5/1765",
         # SX scale-up methodology (Ge from coal fly ash):
         "https://www.mdpi.com/2075-163X/5/2/298",
@@ -1838,7 +1838,7 @@ SELECTIVE_LEACHING_IX_SPEC = StepSpec(
     mass_balance_basis="Gallium dissolves into the NaOH leachate; solids are represented through cake-based consumption factors.",
     recovery_basis=(
         "Frozen leaching recovery of 0.9781 (97.81%) to the NaOH leachate. "
-        "Source: Cheng/Huang et al. (MDPI Processes 2019, doi:10.3390/pr7120921)."
+        "Source: Zhang et al. (2023, doi:10.3390/separations10090510)."
     ),
     sizing_basis="Fixed-size leaching train; throughput enters through cake mass and associated NaOH, filtration, and heating demand.",
     cost_basis="Annualized CapEx from fixed direct equipment cost multiplied by a Lang factor of 3.0; OpEx from NaOH, filter bags, electricity, and M&O.",
@@ -1873,7 +1873,7 @@ SELECTIVE_LEACHING_SX_SPEC = StepSpec(
     purpose="Dissolve precipitated gallium hydroxide from the SX cake into an alkaline leachate suited for electrowinning.",
     stream_basis="Precipitation cake with Cake_mass = 0.108 * Q.",
     mass_balance_basis="Gallium dissolves into the NaOH leachate; solids are represented through cake-based consumption factors.",
-    recovery_basis="Frozen leaching recovery of 0.9781 to the leachate.",
+    recovery_basis="Frozen leaching recovery of 0.9781 (97.81%) to the leachate. Source: Zhang et al. (2023, doi:10.3390/separations10090510).",
     sizing_basis="Fixed-size leaching train shared with the IX route; throughput enters through cake mass and associated NaOH, filtration, and heating demand.",
     cost_basis="Annualized CapEx from fixed direct equipment cost multiplied by a Lang factor of 3.0; OpEx from NaOH, filter bags, electricity, and M&O.",
     assumptions=(
