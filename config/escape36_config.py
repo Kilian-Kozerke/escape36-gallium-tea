@@ -1,8 +1,4 @@
-"""ESCAPE 36 paper baseline configuration.
-
-Carbon costs (CO₂ tax, LCA) are out of scope for the conference paper.
-DEFAULT_CONFIG in tea_model_ga_escape36 already has co2_tax_mode='none'.
-"""
+"""ESCAPE 36 paper baseline configuration."""
 
 import sys
 from pathlib import Path

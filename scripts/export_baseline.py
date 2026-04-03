@@ -81,7 +81,7 @@ def main():
     )
 
     # cost_breakdown_by_block.csv
-    block_keys = ["CapEx-Sep", "CapEx-Other", "OpEx", "Repl-Sep", "Repl-Other", "Labour", "CO2_Tax"]
+    block_keys = ["CapEx-Sep", "CapEx-Other", "OpEx", "Repl-Sep", "Repl-Other", "Labour"]
     rows = []
     for q in EXPORT_Q_VALUES:
         for route in ROUTES:
@@ -130,8 +130,6 @@ def main():
     metadata = {
         "baseline_id": "escape36_final",
         "timestamp": datetime.utcnow().isoformat() + "Z",
-        "co2_tax_mode": config.co2_tax_mode,
-        "co2_tax_per_ton": config.co2_tax_per_ton,
         "sx_makeup_rate_annual": config.sx_makeup_rate_annual,
         "c_ga_feed_mg_L": tea.FEED_BASELINE_TEMPLATE["species_mg_L"]["Ga"],
         "ga_market_price_base": config.ga_market_price_base,

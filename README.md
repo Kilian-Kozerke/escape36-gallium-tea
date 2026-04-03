@@ -12,8 +12,8 @@ paper:
 **In scope:** LCOGa (levelised cost of gallium), annual production, cost breakdown, and
 break-even throughput (Q*).
 
-**Out of scope:** LCA (life-cycle assessment) and CO₂ tax. The ESCAPE baseline uses
-`co2_tax_mode='none'`; carbon costs are excluded from all cost outputs.
+**Out of scope:** LCA (life-cycle assessment) and CO₂ tax. Carbon costs are excluded from
+all cost outputs.
 
 ## Process Overview
 
@@ -39,8 +39,7 @@ Route B — Solvent Extraction (SX)
 
 **Functional unit:** 1 kg of 4N gallium produced.
 
-**Cost framework:** LCOGa = TC / m_Ga,ann, where total annual cost TC = CapEx + OpEx + REP + LC.
-(CO₂ tax is excluded in the ESCAPE baseline.)
+**Cost framework:** LCOGa = TC / m_Ga,ann, where total annual cost TC = CapEx + OpEx + REP + Labour.
 
 **Capital recovery factor:** AF = r(1+r)^n / ((1+r)^n − 1); default r=0.08, n=20 years.
 
@@ -78,7 +77,7 @@ print(f"IX: {lco_ix:.1f} EUR/kg   SX: {lco_sx:.1f} EUR/kg")
 bd = tea.calc_cost_breakdown(Q, route='IX')
 ```
 
-`DEFAULT_CONFIG` already encodes the ESCAPE baseline (`co2_tax_mode='none'`).
+`DEFAULT_CONFIG` already encodes the ESCAPE baseline.
 Pass a custom config via `tea.calc_lco_ga(Q, config=my_config)` if needed.
 
 ## Reproducing Paper Results
@@ -100,7 +99,7 @@ This generates:
 ```
 tea_model_ga_escape36.py         Core TEA model
 config/
-  escape36_config.py        ESCAPE baseline (co2_tax_mode='none')
+  escape36_config.py        ESCAPE baseline configuration
 scripts/
   export_baseline.py        CSV and metadata export
   fig_lcoga_vs_q.py         LCOGa vs Q figure

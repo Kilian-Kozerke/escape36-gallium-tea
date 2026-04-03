@@ -9,21 +9,6 @@ This file accompanies the ESCAPE 36 conference paper:
   Kozerke, K. et al. (2026). Techno-economic feasibility of gallium recovery
   from semiconductor wastewater.  ESCAPE 36, Sheffield, 21–24 June 2026.
 
-Scope of this file
-------------------
-This is the ESCAPE 36 baseline version of the model.  Carbon costs (CO₂ tax,
-LCA) are outside the scope of the conference paper; the default configuration
-uses co2_tax_mode='none'.  The CO₂-accounting infrastructure is retained in
-the code for forward compatibility, but is not activated in any paper result.
-
-For the full thesis version — including LCA carbon-burden analysis, broader
-sensitivity analysis, and scenario robustness — see the companion repository
-``gallium-tea-repo`` and the associated master's thesis:
-
-  Kozerke, K. (2025). Techno-Economic and Environmental Assessment of Gallium
-  Recovery from GaAs Semiconductor Manufacturing Wastewater.
-  Master's Thesis, University of Cambridge / WZL RWTH Aachen University.
-
 Process trains
 --------------
 Two competing recovery routes share a common upstream section
@@ -117,7 +102,9 @@ import numpy as np
 
 # Module-level constants extracted from removed Assumptions dataclasses
 Q_FEED_RANGE = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90, 100], dtype=float)
-"""Feed flow-rate range for sensitivity analysis [m³/d]."""
+"""Feed flow-rate range for sensitivity analysis [m³/d].
+Source: Huang C et al. (2007), J Chem Technol Biotechnol 82:289–294.
+https://doi.org/10.1002/jctb.1671"""
 
 GA_MARKET_PRICE_RANGE = np.array([200, 300, 400, 500, 600, 700, 800, 900, 1000], dtype=float)
 """Gallium market price range for sensitivity analysis [EUR/kg]."""
@@ -157,9 +144,6 @@ class StepSpec:
     equipment: tuple[EquipmentItem, ...]
     constants: Mapping[str, float]
     tea_scope: str = ""
-    lca_scope: str = ""
-    waste_scope: str = ""
-    lca_factor_keys: tuple[str, ...] = ()
     """Source annotations for individual constants: {constant_name: source_or_explanation}.
     Parallel to ``constants``; keys need not cover every entry. Purely informational."""
 
@@ -182,12 +166,8 @@ FEED_BASELINE_TEMPLATE: Mapping[str, Any] = {
     'TSS_mg_L': 30.0,
     'TOC_mg_L': 5.0,
     'TDS_mg_L': 1500.0,
-    'source': 'Jain 2019 (Ga/As/P, Ca/Mg/Fe/Al/Ni); Li 2015 (Na/Cl/SO4, TSS, TDS); literature reviews (TOC)'
+    'source': 'Jain 2019 (Ga/As/P, Ca/Mg/Fe/Al/Ni); Li 2015 (Na/Cl/SO4, TSS, TDS); literature reviews (TOC); Huang 2007 (Q_feed range basis)'
 }
-
-VALID_CO2_TAX_MODES: tuple[str, ...] = ("none", "energy_only", "full_lca")
-VALID_CO2_ENERGY_PATHS: tuple[str, ...] = ("legacy_frozen", "route_consistent")
-
 
 @dataclass(frozen=True)
 class TEAConfig:
@@ -208,46 +188,51 @@ class TEAConfig:
     # ========================================================================
     days_per_year: float = 365.0
     plant_availability: float = 0.95
+    """Plant availability factor (fraction of 365 days at full operation).
+    Source: Kettani & Bandelier (2020), Desalination 494:114627.
+    https://doi.org/10.1016/j.desal.2020.114627"""
 
     # ========================================================================
     # FINANCIAL PARAMETERS
     # ========================================================================
     r: float = 0.08
-    """Discount rate for capital recovery factor calculation."""
+    """Discount rate for capital recovery factor calculation.
+    Source: Helal et al. (2008), Desalination 221:1–16.
+    https://doi.org/10.1016/j.desal.2007.01.064"""
     n: int = 20
-    """Plant lifetime in years."""
+    """Plant lifetime in years.
+    Source: Kettani & Bandelier (2020), Desalination 494:114627.
+    https://doi.org/10.1016/j.desal.2020.114627"""
     O_M_rate: float = 0.02
-    """Maintenance and operations rate as a fraction of total capital investment."""
+    """Maintenance and operations rate as a fraction of total capital investment.
+    Source: Helal et al. (2008), Desalination 221:1–16.
+    https://doi.org/10.1016/j.desal.2007.01.064"""
     labour_cost_full_time: float = 69164.0
-    """Fully loaded annual cost of one full-time chemical operator (EUR/year)."""
+    """Fully loaded annual cost of one full-time chemical operator (EUR/year).
+    Source: Chemiewirtschaft in Zahlen 2024."""
     labour_FTE: float = 0.25
-    """Full-time equivalent assigned to this plant."""
+    """Full-time equivalent assigned to this plant.
+    Source: Pryce et al. (2022), Development Engineering 7:100103.
+    https://doi.org/10.1016/j.deveng.2022.100103"""
 
     # ========================================================================
     # MARKET ASSUMPTIONS
     # ========================================================================
     electricity_price: float = 0.1648
-    """Electricity price in EUR/kWh."""
+    """Electricity price in EUR/kWh.
+    Source: SMARD Industriestrompreise (accessed 22 Jan. 2026).
+    https://www.smard.de/page/home/topic-article/211972/215546/industriestrompreise"""
     ga_market_price_base: float = 423.0
-    """Market price for gallium 4N in EUR/kg."""
-
-    # ========================================================================
-    # CARBON COSTING
-    # ========================================================================
-    co2_tax_per_ton: float = 60.0
-    """CO2 tax per tonne of CO2 (EUR/t CO2)."""
-    co2_tax_mode: str = "energy_only"
-    """Carbon-cost scope: 'none', 'energy_only', or 'full_lca'."""
-    co2_energy_path: str = "legacy_frozen"
-    """Implementation path for energy_only mode: 'legacy_frozen' or 'route_consistent'."""
-    energy_only_grid_emission_factor: float = 0.4
-    """Electricity-only carbon-load factor (kg CO2eq/kWh)."""
+    """Market price for gallium 4N in EUR/kg.
+    Source: Jaskula B (2025), Mineral Commodity Summaries 2025."""
 
     # ========================================================================
     # SX SOLVENT MANAGEMENT
     # ========================================================================
     sx_makeup_rate_annual: float = 0.15
-    """Annual SX solvent make-up rate (fraction of organic inventory)."""
+    """Annual SX solvent make-up rate (fraction of organic inventory).
+    Source: Kaminski MD & Argonne National Lab – Evaluation of extractant-coated
+    magnetic microparticles for the recovery of hazardous metals from waste solution."""
 
     # ========================================================================
     # SCENARIO MULTIPLIERS
@@ -361,9 +346,8 @@ class TEAConfig:
         return dataclass_replace(self, **kwargs)
 
 
-# Default configuration instance — ESCAPE 36 baseline: carbon costs excluded.
-# Use TEAConfig(co2_tax_mode="energy_only", co2_tax_per_ton=60.0) for the thesis baseline.
-DEFAULT_CONFIG = TEAConfig(co2_tax_mode="none", co2_tax_per_ton=0.0)
+# Default configuration instance — ESCAPE 36 baseline.
+DEFAULT_CONFIG = TEAConfig()
 
 
 
@@ -380,27 +364,7 @@ DEFAULT_CONFIG = TEAConfig(co2_tax_mode="none", co2_tax_per_ton=0.0)
 # - Annual production is tracked in kg/yr in code and corresponds to kg·a⁻¹ in
 #   the thesis.
 # - Frozen public cost-output keys remain `CapEx`, `OpEx`, `REP`, `Labour`,
-#   `CO2_Tax`, and `Total`.
-#
-# Inventory-output conventions:
-# - `consumption_per_m3` is the default feed-normalized inventory field.
-# - SX material helpers may additionally expose route-internal normalizations
-#   such as `consumption_per_m3_sx_input` where the scientific basis requires it.
-# - Some helper outputs intentionally expose cost-proxy consumable records
-#   instead of pure mass inventories for backward compatibility with legacy
-#   reporting and export code.
-# - Waste and side-stream helpers are kept for mass-balance closure and
-#   comparative inventory work, but they remain outside the active baseline
-#   TEA total-cost aggregation unless a dedicated disposal helper is called.
-#
-# Carbon-accounting conventions:
-# - `co2_tax_mode='none'` keeps carbon costs out of scope (ESCAPE-style baseline).
-# - `co2_tax_mode='energy_only'` prices only electricity-related carbon load.
-# - `co2_tax_mode='full_lca'` prices the modeled LCA carbon load as a shadow
-#   price, using the repository LCA bridge.
-# - `co2_energy_path='legacy_frozen'` preserves the thesis-compatible SX
-#   electricity path; `route_consistent` exposes the clean SX-specific variant
-#   without changing the frozen default.
+#   and `Total`.
 
 # ============================================================================
 # HELPER FUNCTIONS FOR CAPITAL AND OPERATING COSTS
@@ -470,231 +434,6 @@ def _equipment_annualized_replacement(equipment: tuple[EquipmentItem, ...]) -> f
     return sum(item.cost_eur / item.lifetime_years for item in equipment)
 
 
-# ============================================================================
-# LCA LAZY-LOAD HELPERS
-# ============================================================================
-
-
-def _lazy_load_lca_module(module_name: str, package_prefix: str = "TEA.lca."):
-    """
-    Load an LCA sub-module lazily without imposing a hard package-import path.
-    Tries TEA/lca/<module_name> first, then falls back to TEA.lca.<module_name>.
-    """
-    import importlib
-    import sys
-    from pathlib import Path
-
-    lca_dir = Path(__file__).resolve().parent / "lca"
-    if str(lca_dir) not in sys.path:
-        sys.path.insert(0, str(lca_dir))
-    try:
-        return importlib.import_module(module_name)
-    except ModuleNotFoundError:
-        project_root = Path(__file__).resolve().parent.parent
-        if str(project_root) not in sys.path:
-            sys.path.insert(0, str(project_root))
-        return importlib.import_module(f"{package_prefix}{module_name}")
-
-
-def _load_lca_recipe_module():
-    """Return the ``lca_recipe_factors`` module (lazy, path-safe)."""
-    return _lazy_load_lca_module("lca_recipe_factors")
-
-
-def _resolve_lca_metadata(
-    *,
-    lca_flow_key: str | None = None,
-    lca_recipe_key: str | None = None,
-) -> tuple[str | None, float | None]:
-    """
-    Return the resolved LCA recipe key and GWP factor for one inventory flow.
-
-    Args:
-        lca_flow_key: Optional TEA flow identifier to look up in the recipe map.
-        lca_recipe_key: Optional direct recipe key (overrides lca_flow_key lookup).
-
-    Returns:
-        A tuple of (recipe_key, gwp_factor_per_kg). Both are None if the flow
-        is not characterized.
-    """
-    if lca_recipe_key is not None:
-        # Key supplied directly — load recipe once here for the GWP lookup.
-        recipe = _load_lca_recipe_module()
-        return lca_recipe_key, float(recipe.get_gwp_per_kg(lca_recipe_key))
-    if lca_flow_key is not None:
-        # Key must be resolved via the flow-key map; single load covers both.
-        recipe = _load_lca_recipe_module()
-        recipe_key = recipe.TEA_FLOW_TO_RECIPE_KEY.get(lca_flow_key)
-        if recipe_key is None:
-            return None, None
-        return recipe_key, float(recipe.get_gwp_per_kg(recipe_key))
-    return None, None
-
-
-def _build_inventory_entry(
-    *,
-    consumption_per_m3: float,
-    unit: str,
-    source: str,
-    price_per_unit: float | None = None,
-    lca_flow_key: str | None = None,
-    lca_recipe_key: str | None = None,
-    tea_cost_scope: str = "included_in_step_opex",
-    lca_scope: str = "included_if_characterized",
-) -> dict[str, Any]:
-    """
-    Return one inventory entry with consistent TEA/LCA traceability fields.
-
-    Args:
-        consumption_per_m3: Material consumption in units per m³ feed.
-        unit: Unit of measurement (e.g., 'kg/m³ Feed').
-        source: Documentation source or reference.
-        price_per_unit: Optional cost per unit for TEA; if None, not included.
-        lca_flow_key: Optional TEA flow identifier for LCA lookup.
-        lca_recipe_key: Optional direct LCA recipe key override.
-        tea_cost_scope: TEA cost scope descriptor.
-        lca_scope: LCA scope descriptor.
-
-    Returns:
-        A dictionary with fields: consumption_per_m3, unit, source, price_per_unit
-        (if provided), tea_cost_scope, lca_scope, lca_flow_key, lca_factor_key,
-        lca_factor_kg_co2eq_per_unit.
-    """
-    recipe_key, gwp_factor = _resolve_lca_metadata(
-        lca_flow_key=lca_flow_key,
-        lca_recipe_key=lca_recipe_key,
-    )
-    entry: dict[str, Any] = {
-        "consumption_per_m3": consumption_per_m3,
-        "unit": unit,
-        "source": source,
-        "tea_cost_scope": tea_cost_scope,
-        "lca_scope": lca_scope,
-        "lca_flow_key": lca_flow_key,
-        "lca_factor_key": recipe_key,
-        "lca_factor_kg_co2eq_per_unit": gwp_factor,
-    }
-    if price_per_unit is not None:
-        entry["price_per_unit"] = price_per_unit
-    return entry
-
-
-def _build_dual_normalized_inventory_entry(
-    *,
-    consumption_per_m3_feed: float,
-    consumption_per_m3_route_input: float,
-    unit_feed: str,
-    unit_route_input: str,
-    source: str,
-    price_per_unit: float | None = None,
-    lca_flow_key: str | None = None,
-    lca_recipe_key: str | None = None,
-    tea_cost_scope: str = "included_in_step_opex",
-    lca_scope: str = "included_if_characterized",
-) -> dict[str, Any]:
-    """
-    Return one dual-normalized inventory entry with feed and route-input bases.
-
-    Some SX steps are more naturally scaled by the route input (aqueous SX phase)
-    rather than total feed. This helper provides both normalizations.
-
-    Args:
-        consumption_per_m3_feed: Material consumption normalized to m³ feed.
-        consumption_per_m3_route_input: Material consumption normalized to route input.
-        unit_feed: Unit for feed normalization.
-        unit_route_input: Unit for route-input normalization.
-        source: Documentation source or reference.
-        price_per_unit: Optional cost per unit for TEA.
-        lca_flow_key: Optional TEA flow identifier for LCA lookup.
-        lca_recipe_key: Optional direct LCA recipe key override.
-        tea_cost_scope: TEA cost scope descriptor.
-        lca_scope: LCA scope descriptor.
-
-    Returns:
-        A dictionary with dual-normalization fields and LCA metadata.
-    """
-    recipe_key, gwp_factor = _resolve_lca_metadata(
-        lca_flow_key=lca_flow_key,
-        lca_recipe_key=lca_recipe_key,
-    )
-    entry: dict[str, Any] = {
-        "consumption_per_m3_feed": consumption_per_m3_feed,
-        "consumption_per_m3_route_input": consumption_per_m3_route_input,
-        "unit_feed": unit_feed,
-        "unit_route_input": unit_route_input,
-        "source": source,
-        "tea_cost_scope": tea_cost_scope,
-        "lca_scope": lca_scope,
-        "lca_flow_key": lca_flow_key,
-        "lca_factor_key": recipe_key,
-        "lca_factor_kg_co2eq_per_unit": gwp_factor,
-    }
-    if price_per_unit is not None:
-        entry["price_per_unit"] = price_per_unit
-    return entry
-
-
-def _build_energy_entry(
-    *,
-    consumption_per_m3: float,
-    source: str,
-    price_per_unit: float,
-    tea_cost_scope: str = "included_in_step_opex",
-    lca_scope: str = "included_in_energy_only_and_full_lca",
-) -> dict[str, Any]:
-    """
-    Return one electricity entry with aligned carbon-traceability metadata.
-
-    Args:
-        consumption_per_m3: Electricity consumption in kWh per m³ feed.
-        source: Documentation source or reference.
-        price_per_unit: Electricity price in EUR/kWh.
-        tea_cost_scope: TEA cost scope descriptor.
-        lca_scope: LCA scope descriptor.
-
-    Returns:
-        A dictionary with electricity consumption, pricing, and LCA metadata.
-    """
-    recipe_key, gwp_factor = _resolve_lca_metadata(lca_recipe_key="electricity")
-    return {
-        "consumption_per_m3": consumption_per_m3,
-        "unit": "kWh/m³ Feed",
-        "price_per_unit": price_per_unit,
-        "source": source,
-        "tea_cost_scope": tea_cost_scope,
-        "lca_scope": lca_scope,
-        "lca_flow_key": "electricity",
-        "lca_factor_key": recipe_key,
-        "lca_factor_kg_co2eq_per_unit": gwp_factor,
-    }
-
-
-def _annotate_waste_stream(
-    stream: Mapping[str, Any],
-    *,
-    tea_total_cost_scope: str = "excluded_from_active_total_costs",
-    lca_scope: str = "retained_for_comparative_inventory_only",
-    scope_note: str,
-) -> dict[str, Any]:
-    """
-    Attach explicit TEA/LCA scope metadata to a waste-stream helper output.
-
-    Args:
-        stream: Dictionary representing a waste stream.
-        tea_total_cost_scope: TEA costing descriptor.
-        lca_scope: LCA inventory descriptor.
-        scope_note: Detailed explanation of the scope decision.
-
-    Returns:
-        The input stream dict augmented with scope metadata.
-    """
-    annotated = dict(stream)
-    annotated["tea_total_cost_scope"] = tea_total_cost_scope
-    annotated["lca_scope"] = lca_scope
-    annotated["scope_note"] = scope_note
-    return annotated
-
-
 # --- END OF PART 1: CONFIGURATION AND HELPERS ---
 
 
@@ -752,9 +491,6 @@ FILTRATION_SPEC = StepSpec(
         "tss_removal_fraction": 0.95,  # Baker (2012) Membrane Technology and Applications, typical MF/UF TSS removal
     },
     tea_scope="Included in TEA through CapEx, REP, pumping electricity, and cartridge consumables.",
-    lca_scope="Electricity is included in `full_lca`; cartridge filters remain uncharacterized in the current repository LCA bridge.",
-    waste_scope="No dedicated waste-stream helper is modeled for filtration in the active TEA or LCA interfaces.",
-    lca_factor_keys=("electricity",),
 )
 
 # ============================================================================
@@ -819,36 +555,6 @@ def calc_filtration_opex_per_m3(Q_feed, config=None):
     return energy_cost + cartridge_cost_per_m3 + M_O_per_m3
 
 
-def calc_filtration_material_consumption(Q_feed, config=None):
-    """Return filtration-material consumption separately from electricity."""
-    config = config or DEFAULT_CONFIG
-    N_filter = _calc_filtration_n_filter(Q_feed)
-    return {
-        'cartridge_filter': _build_inventory_entry(
-            consumption_per_m3=(N_filter * 2) / (Q_feed * config.operating_days),
-            unit='items/m³ Feed',
-            price_per_unit=FILTRATION_SPEC.constants["cartridge_cost_eur"],
-            source='https://pumpexpress.co.uk/shop/fa-20-sx-filter-cartridge-only-5-micron/',
-            tea_cost_scope='included_in_step_opex',
-            lca_scope='not_characterized_in_current_repository_lca',
-        )
-    }
-
-
-def calc_filtration_energy_consumption(Q_feed, config=None):
-    """Return filtration-electricity consumption separately from materials."""
-    config = config or DEFAULT_CONFIG
-    pumping_power = FILTRATION_SPEC.constants["pump_power_max_kw"] * max(0.1, min(1.0, Q_feed / 100))
-    SEC = (pumping_power * 24) / Q_feed * config.plant_availability
-    return {
-        'electricity': _build_energy_entry(
-            consumption_per_m3=SEC,
-            price_per_unit=config.electricity_price,
-            source='Derived from the Pedrollo CP150 pumping power (0.75 kW maximum) with linear scaling over Q.',
-        )
-    }
-
-
 # ============================================================================
 # PROCESS STEP 2: RO SPLIT
 # ============================================================================
@@ -896,9 +602,6 @@ RO_SPLIT_SPEC = StepSpec(
         "membrane_replacement_fraction_per_year": 0.10,  # industry rule-of-thumb; 5-year RO element life → 20%/yr, 10%/yr partial strategy
     },
     tea_scope="Included in TEA through CapEx, REP, and electricity; permeate disposal is exposed only through a separate helper and remains outside active route totals.",
-    lca_scope="Electricity is included in `full_lca`; membrane replacement is not yet characterized as a separate repository LCA flow.",
-    waste_scope="RO permeate/waste helpers are inventory-style only and are not included in `calc_total_costs`.",
-    lca_factor_keys=("electricity",),
 )
 
 # ============================================================================
@@ -952,18 +655,6 @@ def calc_ro_split_rep_per_m3(Q_feed, config=None):
     return rep_total / (Q_feed * config.operating_days)
 
 
-def calc_ro_split_waste_disposal_cost_per_m3(Q_feed, config=None):
-    """Return permeate-disposal cost from the RO split in ``EUR/m³ feed``.
-
-    Exposes disposal cost for sensitivity analysis and waste-stream inventory only.
-    This function is **not** included in ``calc_total_costs()``; see
-    ``_annotate_waste_stream`` for the ``excluded_from_active_total_costs`` flag.
-    """
-    config = config or DEFAULT_CONFIG
-    Q_permeat = RO_SPLIT_SPEC.constants["permeate_fraction"] * Q_feed
-    disposal_cost_daily = Q_permeat * RO_SPLIT_SPEC.constants["permeate_disposal_cost_eur_per_m3"]
-    return disposal_cost_daily / (Q_feed * config.plant_availability)
-
 
 def calc_ro_split_opex_per_m3(Q_feed, config=None):
     """Return RO-split OpEx in ``EUR/m³ feed``."""
@@ -977,31 +668,6 @@ def calc_ro_split_opex_per_m3(Q_feed, config=None):
 
     return energy_cost + M_O_per_m3
 
-
-def calc_ro_split_material_consumption(Q_feed, config=None):
-    """Return RO-split material consumption separately from electricity.
-
-    The frozen public model does not yet expose membrane replacement as a
-    separate material inventory record, so this helper intentionally remains
-    empty until the source audit decides whether that expansion is warranted.
-    """
-    config = config or DEFAULT_CONFIG
-    return {}
-
-
-def calc_ro_split_energy_consumption(Q_feed, config=None):
-    """Return RO-split electricity consumption separately from materials."""
-    config = config or DEFAULT_CONFIG
-    pump_power_stage1, pump_power_stage2 = _calc_ro_split_pump_power(Q_feed)
-    SEC = (pump_power_stage1 + pump_power_stage2) * 24 / Q_feed * config.plant_availability
-
-    return {
-        'electricity': _build_energy_entry(
-            consumption_per_m3=SEC,
-            price_per_unit=config.electricity_price,
-            source='Derived from stage pressures of 20 and 23 bar with a fixed pump efficiency of 0.7.',
-        )
-    }
 
 
 # ============================================================================
@@ -1046,9 +712,6 @@ PH_ADJUST_SPEC = StepSpec(
         "ph_electrode_cost_eur": 380.0,  # trafalgarscientific.co.uk wastewater pH electrode (gel-filled, Ti body), accessed Mar 2025
     },
     tea_scope="Included in TEA through HCl consumption, electricity, CapEx, and REP.",
-    lca_scope="Included in `full_lca` through HCl and electricity.",
-    waste_scope="No standalone waste-stream helper is modeled for this conditioning step.",
-    lca_factor_keys=("hcl_32wt", "electricity"),
 )
 
 # ============================================================================
@@ -1102,35 +765,6 @@ def calc_ph_adjust_opex_per_m3(Q_feed, config=None):
 
     return acid_cost + energy_cost + M_O_per_m3
 
-
-def calc_ph_adjust_material_consumption(Q_feed, config=None):
-    """Return HCl consumption for the pH-adjustment step."""
-    config = config or DEFAULT_CONFIG
-    Qc = RO_CONCENTRATE_FRACTION * Q_feed
-    return {
-        'hcl_32wt': _build_inventory_entry(
-            consumption_per_m3=(
-                Qc * PH_ADJUST_SPEC.constants["hcl_consumption_kg_per_m3_concentrate"]
-            ) / (Q_feed * config.plant_availability),
-            unit='kg/m³ Feed',
-            price_per_unit=PH_ADJUST_SPEC.constants["hcl_price_eur_per_kg"],
-            source='Calculated from Δ[H+] = 10^(-2.0) - 10^(-3.8) and the frozen conversion to 1.1 kg HCl (32 wt%) per m³ concentrate.',
-            lca_flow_key='hcl_32wt',
-        )
-    }
-
-
-def calc_ph_adjust_energy_consumption(Q_feed, config=None):
-    """Return electricity consumption for the pH-adjustment step."""
-    config = config or DEFAULT_CONFIG
-    SEC = PH_ADJUST_SPEC.constants["electricity_kwh_per_day"] / (Q_feed * config.plant_availability)
-    return {
-        'electricity': _build_energy_entry(
-            consumption_per_m3=SEC,
-            price_per_unit=config.electricity_price,
-            source='Membrane dosing pump, 50W × 24h = 1.2 kWh/d',
-        )
-    }
 
 
 # ============================================================================
@@ -1215,9 +849,6 @@ IX_SPEC = StepSpec(
         "raffinate_disposal_cost_eur_per_m3": 1.10,  # industrial arsenic-bearing effluent disposal; thesis baseline — verify regional tariff
     },
     tea_scope="Included in TEA through sulfuric-acid elution, electricity, CapEx, REP, and annualized resin replacement; raffinate disposal remains separate from active route totals.",
-    lca_scope="Included in `full_lca` through sulfuric acid, electricity, and annualized IX resin replacement.",
-    waste_scope="The arsenic-bearing IX raffinate is exposed through helper outputs for traceability and comparative work, but not charged in `calc_total_costs`.",
-    lca_factor_keys=("h2so4_01M", "ix_resin", "electricity"),
 )
 
 # ============================================================================
@@ -1303,87 +934,7 @@ def calc_ix_opex_per_m3(Q_feed, config=None):
     return chemical_cost + energy_cost + M_O_per_m3
 
 
-def calc_ix_material_consumption(Q_feed, config=None):
-    """Return IX material consumption separately from electricity."""
-    config = config or DEFAULT_CONFIG
-    Q_elution = IX_SPEC.constants["q_elution_factor"] * Q_feed
 
-    return {
-        'h2so4_01M': _build_inventory_entry(
-            consumption_per_m3=Q_elution / (Q_feed * config.plant_availability),
-            unit='m³/m³ Feed',
-            price_per_unit=IX_SPEC.constants["h2so4_01m_price_eur_per_l"] * 1000,
-            source='0.1 M H2SO4 elution liquor; frozen price conversion from 0.13 EUR/kg H2SO4 to 0.0013 EUR/L.',
-            lca_flow_key='h2so4_01M',
-        ),
-        'ix_resin_replacement': _build_inventory_entry(
-            consumption_per_m3=_calc_ix_resin_replacement_per_m3(Q_feed, config),
-            unit='kg resin/m³ Feed',
-            source='Annualized DIAION CR11 replacement from six columns, 5-year resin lifetime, and 0.72 kg/L shipping density.',
-            lca_flow_key='ix_resin',
-            tea_cost_scope='included_in_step_rep',
-        ),
-    }
-
-
-def calc_ix_energy_consumption(Q_feed, config=None):
-    """Return IX electricity consumption separately from materials."""
-    config = config or DEFAULT_CONFIG
-    Qc = RO_CONCENTRATE_FRACTION * Q_feed
-    SEC = IX_SPEC.constants["sec_kwh_per_m3_concentrate"]
-
-    return {
-        'electricity': _build_energy_entry(
-            consumption_per_m3=SEC * Qc / Q_feed * config.plant_availability,
-            price_per_unit=config.electricity_price,
-            source='https://doi.org/10.1021/acsestengg.0c00192',
-        )
-    }
-
-
-def calc_ix_waste_stream(Q_feed, config=None):
-    """Return the arsenic-bearing IX raffinate stream."""
-    config = config or DEFAULT_CONFIG
-    Qc = RO_CONCENTRATE_FRACTION * Q_feed
-    Q_waste = Qc
-    arsenic_concentration = IX_SPEC.constants["raffinate_arsenic_mg_per_l"]
-    arsenic_mass_per_day = (Q_waste * arsenic_concentration) / 1000
-
-    return _annotate_waste_stream(
-        {
-            'volume_per_day': Q_waste,
-            'volume_per_m3_feed': Q_waste / Q_feed,
-            'arsenic_concentration': arsenic_concentration,
-            'arsenic_mass_per_day': arsenic_mass_per_day,
-            'arsenic_mass_per_m3_feed': arsenic_mass_per_day / Q_feed,
-            'description': 'IX raffinate after adsorption at pH 2 with low gallium loading and 164.19 mg/L arsenic.',
-            'source': 'Waste volume equals the IX inlet flow (Qc = 0.2 × Q); arsenic concentration follows the frozen baseline snapshot.',
-        },
-        scope_note='This raffinate is tracked for waste-inventory transparency and Luo-style comparison, but it is not added to active TEA total-cost outputs.',
-    )
-
-
-def calc_ix_waste_disposal_cost_per_m3(Q_feed, config=None):
-    """Return IX raffinate-disposal cost in ``EUR/m³ feed``.
-
-    Exposes disposal cost for sensitivity analysis and waste-stream inventory only.
-    This function is **not** included in ``calc_total_costs()``; see
-    ``_annotate_waste_stream`` for the ``excluded_from_active_total_costs`` flag.
-    """
-    config = config or DEFAULT_CONFIG
-    Qc = RO_CONCENTRATE_FRACTION * Q_feed
-    Q_waste = Qc
-    disposal_cost_daily = Q_waste * IX_SPEC.constants["raffinate_disposal_cost_eur_per_m3"]
-    return disposal_cost_daily / (Q_feed * config.plant_availability)
-
-
-def _calc_ix_resin_replacement_per_m3(q_feed, config):
-    """Return annualized IX resin replacement in ``kg resin/m³ feed``."""
-    q_concentrate = RO_CONCENTRATE_FRACTION * q_feed
-    resin_volume_per_column_l = q_concentrate * 1000 / 129.6
-    annual_resin_volume_l = 6 * resin_volume_per_column_l / 5
-    annual_resin_mass_kg = annual_resin_volume_l * 0.72
-    return annual_resin_mass_kg / (q_feed * config.operating_days)
 
 
 # ============================================================================
@@ -1451,9 +1002,6 @@ SX_SPEC = StepSpec(
         "raffinate_disposal_cost_eur_per_m3": 1.10,  # same as IX route for cross-route consistency; thesis baseline
     },
     tea_scope="Included in TEA through Cyanex 272, kerosene, strip-acid, electricity, CapEx, REP, and the SX-specific solvent make-up assumption.",
-    lca_scope="Included in `full_lca` through modeled organic make-up, strip acid, and electricity; excluded from `energy_only` except for electricity.",
-    waste_scope="The arsenic-bearing SX raffinate remains outside active route totals and is retained as an explicit waste/inventory helper.",
-    lca_factor_keys=("organic", "kerosene", "hcl_32wt", "electricity"),
 )
 
 # ============================================================================
@@ -1577,103 +1125,6 @@ def calc_sx_opex_per_m3(Q_feed, config=None):
     return chemical_cost + energy_cost + M_O_per_m3
 
 
-def calc_sx_material_consumption(Q_feed, config=None):
-    """Return SX material consumption separately from electricity."""
-    config = config or DEFAULT_CONFIG
-    q_aqueous = RO_CONCENTRATE_FRACTION * Q_feed
-    cyanex_consumption_daily, kerosene_consumption_daily, hcl_consumption_daily = _calc_sx_makeup_flows_per_day(Q_feed, config)
-
-    return {
-        'cyanex': _build_dual_normalized_inventory_entry(
-            consumption_per_m3_feed=cyanex_consumption_daily / (Q_feed * config.plant_availability),
-            consumption_per_m3_route_input=cyanex_consumption_daily / (q_aqueous * config.plant_availability),
-            unit_feed='kg/m³ Feed',
-            unit_route_input='kg/m³ SX-Input',
-            price_per_unit=SX_SPEC.constants["cyanex_price_eur_per_kg"],
-            source='Cyanex 272 make-up from the circulating organic inventory; the frozen baseline uses a 15% per operating-year make-up rate from the SX solvent-management assumption.',
-            lca_flow_key='organic',
-        ),
-        'kerosene': _build_dual_normalized_inventory_entry(
-            consumption_per_m3_feed=kerosene_consumption_daily / (Q_feed * config.plant_availability),
-            consumption_per_m3_route_input=kerosene_consumption_daily / (q_aqueous * config.plant_availability),
-            unit_feed='kg/m³ Feed',
-            unit_route_input='kg/m³ SX-Input',
-            price_per_unit=SX_SPEC.constants["kerosene_price_eur_per_kg"],
-            source='Kerosene make-up paired with the frozen Cyanex 272 recipe and the same 15% per operating-year inventory replacement.',
-            lca_flow_key='kerosene',
-        ),
-        'hcl': _build_inventory_entry(
-            consumption_per_m3=hcl_consumption_daily / (Q_feed * config.plant_availability),
-            unit='kg/m³ Feed',
-            price_per_unit=SX_SPEC.constants["hcl_price_eur_per_kg"],
-            source='0.5 M HCl strip liquor: 0.0570 kg 32 wt% HCl solution per litre of strip (18.23 g pure HCl / 0.32 wt-frac = 56.97 g); Chen et al. (2020) doi:10.3390/su12051765.',
-            lca_flow_key='hcl_32wt',
-        ),
-    }
-
-
-def calc_sx_energy_consumption(Q_feed, config=None):
-    """Return SX electricity consumption separately from materials."""
-    config = config or DEFAULT_CONFIG
-    Qc = RO_CONCENTRATE_FRACTION * Q_feed
-    Q_A_L_per_h = Qc * 1000 / 24
-    mixer_settler_capacity = SX_SPEC.constants["mixer_settler_capacity_l_per_h"]
-    N_mixer_settler = ceil(Q_A_L_per_h / mixer_settler_capacity)
-
-    mixer_power_per_unit = SX_SPEC.constants["mixer_power_kw"]
-    N_mixer_total = 2 * N_mixer_settler
-    mixer_power_total = N_mixer_total * mixer_power_per_unit
-
-    pump_power_per_pump = SX_SPEC.constants["pump_power_kw"]
-    pump_power_total = SX_SPEC.constants["number_of_pumps"] * pump_power_per_pump
-
-    total_power = mixer_power_total + pump_power_total
-    electricity_kwh_daily = total_power * 24
-    SEC = electricity_kwh_daily / (Q_feed * config.plant_availability)
-
-    return {
-        'electricity': _build_energy_entry(
-            consumption_per_m3=SEC,
-            price_per_unit=config.electricity_price,
-            source='Mixer-settlers at 20 W per unit plus three pumps at 0.18 kW each, operated continuously.',
-        )
-    }
-
-
-def calc_sx_waste_stream(Q_feed, config=None):
-    """Return the arsenic-bearing SX raffinate stream."""
-    config = config or DEFAULT_CONFIG
-    Qc = RO_CONCENTRATE_FRACTION * Q_feed
-    Q_raffinate = Qc
-    arsenic_concentration = SX_SPEC.constants["raffinate_arsenic_mg_per_l"]
-    arsenic_mass_per_day = (Q_raffinate * arsenic_concentration) / 1000
-
-    return _annotate_waste_stream(
-        {
-            'volume_per_day': Q_raffinate,
-            'volume_per_m3_feed': Q_raffinate / Q_feed,
-            'arsenic_concentration': arsenic_concentration,
-            'arsenic_mass_per_day': arsenic_mass_per_day,
-            'arsenic_mass_per_m3_feed': arsenic_mass_per_day / Q_feed,
-            'description': 'SX raffinate after extraction at pH 1.77 with low gallium loading and 158.26 mg/L arsenic.',
-            'source': 'Waste volume equals the SX inlet flow (Qc = 0.2 × Q); arsenic concentration follows the frozen baseline snapshot.',
-        },
-        scope_note='This raffinate is tracked for waste-inventory transparency and Luo-style comparison, but it is not added to active TEA total-cost outputs.',
-    )
-
-
-def calc_sx_waste_disposal_cost_per_m3(Q_feed, config=None):
-    """Return SX raffinate-disposal cost in ``EUR/m³ feed``.
-
-    Exposes disposal cost for sensitivity analysis and waste-stream inventory only.
-    This function is **not** included in ``calc_total_costs()``; see
-    ``_annotate_waste_stream`` for the ``excluded_from_active_total_costs`` flag.
-    """
-    config = config or DEFAULT_CONFIG
-    waste_stream = calc_sx_waste_stream(Q_feed, config)
-    Q_raffinate = waste_stream['volume_per_day']
-    disposal_cost_daily = Q_raffinate * SX_SPEC.constants["raffinate_disposal_cost_eur_per_m3"]
-    return disposal_cost_daily / (Q_feed * config.plant_availability)
 
 
 # ============================================================================
@@ -1784,9 +1235,6 @@ PRECIPITATION_IX_SPEC = StepSpec(
         "naoh_l_per_m3_elution": 14.5,    # ~10.5 L theoretical + 38% excess to reach pH 5.0; Diakonov et al. GCA 1997 (doi:10.1016/s0016-7037(97)00011-2); Bénézeth et al. GCA 1997
     },
     tea_scope="Included in TEA through NaOH, wash water, electricity, CapEx, and REP; effluent disposal remains separate from active route totals.",
-    lca_scope="Included in `full_lca` through NaOH and electricity; wash water is retained as an uncharacterized inventory helper.",
-    waste_scope="The arsenic-bearing effluent helper is kept for inventory and comparison work, not for active total-cost aggregation.",
-    lca_factor_keys=("naoh_50wt", "electricity"),
 )
 
 # ============================================================================
@@ -1821,9 +1269,6 @@ PRECIPITATION_SX_SPEC = StepSpec(
         "naoh_l_per_m3_strip": 14.5 * 2.5,  # 0.5 M HCl needs 2.5× more NaOH than 0.1 M H₂SO₄ (0.5/0.2=2.5); Chen et al. (2020)
     },
     tea_scope="Included in TEA through NaOH, wash water, electricity, CapEx, and REP.",
-    lca_scope="Included in `full_lca` through NaOH and electricity; wash water is retained as an uncharacterized inventory helper.",
-    waste_scope="No separate SX precipitation waste stream is modeled; this absence is intentional in the frozen TEA/LCA interface.",
-    lca_factor_keys=("naoh_50wt", "electricity"),
 )
 
 # ============================================================================
@@ -1858,9 +1303,6 @@ SELECTIVE_LEACHING_IX_SPEC = StepSpec(
         "cake_mass_factor": 0.139,  # 0.139 kg Ga(OH)₃ cake per m³ feed; IX mass balance (stoichiometric)
     },
     tea_scope="Included in TEA through NaOH, filter-bag consumables, electricity, CapEx, and REP.",
-    lca_scope="Included in `full_lca` through NaOH and electricity; filter-bag costs remain a TEA-only proxy output.",
-    waste_scope="No standalone waste-stream helper is modeled for IX selective leaching.",
-    lca_factor_keys=("naoh_50wt", "electricity"),
 )
 
 # ============================================================================
@@ -1891,9 +1333,6 @@ SELECTIVE_LEACHING_SX_SPEC = StepSpec(
         "cake_mass_factor": 0.108,  # 0.108 kg cake per m³ feed (SX route); lower than IX (0.139) due to smaller strip volume
     },
     tea_scope="Included in TEA through NaOH, filter-bag consumables, electricity, CapEx, and REP.",
-    lca_scope="Included in `full_lca` through NaOH and electricity; filter-bag costs remain a TEA-only proxy output.",
-    waste_scope="No standalone waste-stream helper is modeled for SX selective leaching.",
-    lca_factor_keys=("naoh_50wt", "electricity"),
 )
 
 # ============================================================================
@@ -1930,9 +1369,6 @@ ELECTROWINNING_IX_SPEC = StepSpec(
         "spent_electrolyte_fraction": 0.95,  # 95% of inlet volume exits as spent electrolyte; 5% deposits as Ga metal
     },
     tea_scope="Included in TEA through electricity, HCl washing, CapEx, REP, and M&O; spent-electrolyte disposal remains a separate helper.",
-    lca_scope="Included in `full_lca` through electricity, HCl washing, and titanium cathode replacement.",
-    waste_scope="Spent electrolyte is retained as an inventory helper and is not included in active route totals.",
-    lca_factor_keys=("hcl_32wt", "ti_cathode_replacement", "electricity"),
 )
 
 # ============================================================================
@@ -1970,9 +1406,6 @@ ELECTROWINNING_SX_SPEC = StepSpec(
         "spent_electrolyte_fraction": 0.95,  # same as IX route
     },
     tea_scope="Included in TEA through electricity, HCl washing, CapEx, REP, and M&O; spent-electrolyte disposal remains a separate helper.",
-    lca_scope="Included in `full_lca` through electricity, HCl washing, and titanium cathode replacement.",
-    waste_scope="Spent electrolyte is retained as an inventory helper and is not included in active route totals.",
-    lca_factor_keys=("hcl_32wt", "ti_cathode_replacement", "electricity"),
 )
 
 # ============================================================================
@@ -2062,97 +1495,6 @@ def calc_precipitation_opex_per_m3(Q_feed, route='IX', config=None):
     return naoh_cost + energy_cost + wash_water_cost + M_O_per_m3
 
 
-def calc_precipitation_material_consumption(Q_feed, route='IX', config=None):
-    """Return material consumption for precipitation."""
-    config = config or DEFAULT_CONFIG
-    spec = DOWNSTREAM_SPECS[route]['precipitation']
-    Q_inlet = _get_precip_inlet_flow(Q_feed, spec)
-    naoh_l_per_m3 = _get_precip_naoh_l_per_m3(spec)
-    naoh_density = spec.constants.get("naoh_density_kg_per_l", 1.53)
-    naoh_price = spec.constants.get("naoh_price_eur_per_kg", 0.30)
-    wash_factor = spec.constants.get("wash_water_factor", 0.3)
-    wash_price = spec.constants.get("wash_water_price_eur_per_m3", 0.001)
-    return {
-        'naoh_50wt': _build_inventory_entry(
-            consumption_per_m3=(Q_inlet * naoh_l_per_m3 * naoh_density) / (Q_feed * config.plant_availability),
-            unit='kg/m3 Feed',
-            price_per_unit=naoh_price,
-            source='NaOH solution (50 wt%, density 1.53 kg/L) for gallium hydroxide precipitation.',
-            lca_flow_key='naoh_50wt',
-        ),
-        'wash_water': _build_inventory_entry(
-            consumption_per_m3=(wash_factor * Q_inlet) / (Q_feed * config.plant_availability),
-            unit='m3/m3 Feed',
-            price_per_unit=wash_price,
-            source='Process-water wash for filter-cake cleaning.',
-            tea_cost_scope='included_in_step_opex',
-            lca_scope='not_characterized_in_current_repository_lca',
-        ),
-    }
-
-
-def calc_precipitation_energy_consumption(Q_feed, route='IX', config=None):
-    """Return electricity consumption for precipitation."""
-    config = config or DEFAULT_CONFIG
-    spec = DOWNSTREAM_SPECS[route]['precipitation']
-    mixer_kw = spec.constants.get("mixer_power_kw", 0.06)
-    pump_kw = spec.constants.get("pump_power_kw", 0.02)
-    SEC = ((mixer_kw + pump_kw) * 24) / (Q_feed * config.plant_availability)
-    return {
-        'electricity': _build_energy_entry(
-            consumption_per_m3=SEC,
-            price_per_unit=config.electricity_price,
-            source='Mixer at 60 W plus transfer pump at 20 W, both operated continuously.',
-        )
-    }
-
-
-def calc_precipitation_waste_stream(Q_feed, route='IX', config=None):
-    """Return the precipitation effluent stream (IX only has arsenic waste)."""
-    config = config or DEFAULT_CONFIG
-    spec = DOWNSTREAM_SPECS[route]['precipitation']
-    Q_inlet = _get_precip_inlet_flow(Q_feed, spec)
-    Q_effluent = Q_inlet
-
-    if route == 'IX':
-        arsenic_concentration = 59.0922
-        arsenic_mass_per_day = (Q_effluent * arsenic_concentration) / 1000
-        return _annotate_waste_stream(
-            {
-                'volume_per_day': Q_effluent,
-                'volume_per_m3_feed': Q_effluent / Q_feed,
-                'arsenic_concentration': arsenic_concentration,
-                'arsenic_mass_per_day': arsenic_mass_per_day,
-                'arsenic_mass_per_m3_feed': arsenic_mass_per_day / Q_feed,
-                'description': 'Effluent after IX precipitation at pH 5 with dissolved arsenic and sodium-sulfate-rich liquor.',
-                'source': 'Effluent volume equals Q_elution; arsenic stays dissolved because co-precipitation is ignored conservatively.',
-            },
-            scope_note='The IX precipitation effluent is available for waste-traceability and comparative inventory work, but it is not charged in active TEA totals.',
-        )
-    # SX: no arsenic waste stream modelled
-    return _annotate_waste_stream(
-        {
-            'volume_per_day': Q_effluent,
-            'volume_per_m3_feed': Q_effluent / Q_feed,
-            'description': 'SX precipitation effluent without arsenic.',
-            'source': 'No arsenic-bearing waste stream modelled for SX precipitation.',
-        },
-        scope_note='No separate SX precipitation waste stream is modeled in the frozen TEA/LCA interface.',
-    )
-
-
-def calc_precipitation_waste_disposal_cost_per_m3(Q_feed, route='IX', config=None):
-    """Return effluent-disposal cost for precipitation in ``EUR/m3 feed``.
-
-    Exposes disposal cost for sensitivity analysis and waste-stream inventory only.
-    This function is **not** included in ``calc_total_costs()``; see
-    ``_annotate_waste_stream`` for the ``excluded_from_active_total_costs`` flag.
-    """
-    config = config or DEFAULT_CONFIG
-    waste_stream = calc_precipitation_waste_stream(Q_feed, route=route, config=config)
-    Q_effluent = waste_stream['volume_per_day']
-    disposal_cost_daily = Q_effluent * 1.10
-    return disposal_cost_daily / (Q_feed * config.plant_availability)
 
 
 
@@ -2217,52 +1559,6 @@ def calc_selective_leaching_opex_per_m3(Q_feed, route='IX', config=None):
         return total_opex
 
 
-def calc_selective_leaching_material_consumption(Q_feed, route='IX', config=None):
-    """Return material consumption for selective leaching."""
-    config = config or DEFAULT_CONFIG
-    spec = DOWNSTREAM_SPECS[route]['selective_leaching']
-    cake_mass = spec.constants["cake_mass_factor"] * Q_feed
-    naoh_kg_per_kg = spec.constants.get("naoh_kg_per_kg_cake", 0.66)
-    naoh_price = spec.constants.get("naoh_price_eur_per_kg", 0.30)
-    filter_coeff = spec.constants.get("filter_bag_cost_per_kg_cake_day", 0.258993)
-    filter_bag_price = spec.constants.get("filter_bag_price_eur", 11.50)
-    return {
-        'naoh': _build_inventory_entry(
-            consumption_per_m3=(naoh_kg_per_kg * cake_mass) / (Q_feed * config.plant_availability),
-            unit='kg/m3 Feed',
-            price_per_unit=naoh_price,
-            source='0.66 kg NaOH / kg Cake for alkaline leaching; sciencedirect.com/science/article/pii/S1003632623664519.',
-            lca_flow_key='naoh_50wt',
-        ),
-        'filterbags': _build_inventory_entry(
-            consumption_per_m3=(filter_coeff * cake_mass) / (Q_feed * config.plant_availability),
-            unit='EUR/m3 Feed',
-            price_per_unit=filter_bag_price,
-            source='Filter-bag consumption at 11.50 EUR per item and a 14-day lifetime.',
-            tea_cost_scope='included_in_step_opex',
-            lca_scope='not_characterized_in_current_repository_lca',
-        ),
-    }
-
-
-def calc_selective_leaching_energy_consumption(Q_feed, route='IX', config=None):
-    """Return electricity consumption for selective leaching."""
-    config = config or DEFAULT_CONFIG
-    spec = DOWNSTREAM_SPECS[route]['selective_leaching']
-    cake_mass = spec.constants["cake_mass_factor"] * Q_feed
-    heat_coeff = spec.constants.get("heating_kwh_per_kg_cake_unnorm", 0.728054)
-    heat_norm = spec.constants.get("heating_normalization_factor", 1.39)
-    mixer_pump_kw = spec.constants.get("mixer_pump_power_kw", 0.06)
-    heating_energy = heat_coeff * cake_mass / heat_norm               # kWh/d
-    mixer_pump_energy = mixer_pump_kw * 24                            # kWh/d
-    SEC = (heating_energy + mixer_pump_energy) / (Q_feed * config.plant_availability)
-    return {
-        'electricity': _build_energy_entry(
-            consumption_per_m3=SEC,
-            price_per_unit=config.electricity_price,
-            source='Heating to 90 C from a 25 C ambient reference plus a 60 W mixer/pump load.',
-        )
-    }
 
 
 
@@ -2343,102 +1639,6 @@ def calc_electrowinning_opex_per_m3(Q_feed, route='IX', config=None):
         return total_opex
 
 
-def calc_electrowinning_material_consumption(Q_feed, route='IX', config=None):
-    """Return material consumption for electrowinning."""
-    config = config or DEFAULT_CONFIG
-    spec = DOWNSTREAM_SPECS[route]['electrowinning']
-    Volume = spec.constants["volume_factor_l_per_q"] * Q_feed
-    hcl_price = spec.constants.get("hcl_price_eur_per_kg", 0.15)
-    hcl_wash_rate = spec.constants.get("hcl_wash_cost_eur_per_l_day", 0.0221)
-    hcl_cost_daily = Volume * hcl_wash_rate  # EUR/d
-    hcl_consumption_daily = hcl_cost_daily / hcl_price  # kg/d
-
-    n_stacks = _calc_electrowinning_n_stacks(Q_feed, route)
-    cathode_ti_mass_per_unit = spec.constants.get("ti_cathode_mass_kg_per_stack", 0.36)
-    cathode_lifetime_years = spec.constants.get("ti_cathode_lifetime_years", 10.0)
-    cathode_ti_replacement_annual = n_stacks * (cathode_ti_mass_per_unit / cathode_lifetime_years)
-    annual_volume = Q_feed * config.operating_days
-    cathode_ti_consumption_per_m3 = cathode_ti_replacement_annual / annual_volume
-
-    return {
-        'hcl_32wt_washing': _build_inventory_entry(
-            consumption_per_m3=hcl_consumption_daily / (Q_feed * config.plant_availability),
-            unit='kg/m3 Feed',
-            price_per_unit=hcl_price,
-            source='HCl wash of deposited Ga; model uses 0.0221 EUR/L-d converted with 0.15 EUR/kg (32 wt% HCl).',
-            lca_flow_key='hcl_32wt',
-        ),
-        'ti_cathode_replacement': _build_inventory_entry(
-            consumption_per_m3=cathode_ti_consumption_per_m3,
-            unit='kg Ti/m3 Feed',
-            source='Cathode replacement mass flow: 0.36 kg Ti/cathode, 10-year lifetime, 1 cathode per stack.',
-            lca_flow_key='ti_cathode_replacement',
-            tea_cost_scope='included_in_step_rep',
-        ),
-    }
-
-
-def calc_electrowinning_energy_consumption(Q_feed, route='IX', config=None):
-    """Return electricity consumption for electrowinning."""
-    config = config or DEFAULT_CONFIG
-    spec = DOWNSTREAM_SPECS[route]['electrowinning']
-    n_stacks = _calc_electrowinning_n_stacks(Q_feed, route)
-    Volume = spec.constants["volume_factor_l_per_q"] * Q_feed
-
-    ga_conc_g_per_l = spec.constants.get("ga_leachate_conc_g_per_l", 40.0)
-    Ga_concentration = ga_conc_g_per_l * config.recoveries['leach_ga_to_leachate']
-    Ga_input = Volume * Ga_concentration / 1000
-    Ga_output = Ga_input * config.recoveries['ew_ga_to_product']
-
-    ew_sec = spec.constants.get("ew_sec_kwh_per_kg_ga", 9.05)
-    pump_kwh_per_stack = spec.constants.get("pump_energy_kwh_per_stack_day", 2.4)
-    dry_sec = spec.constants.get("drying_sec_kwh_per_kg_ga", 0.1)
-    electrolysis_energy = Ga_output * ew_sec          # kWh/d
-    pump_energy = n_stacks * pump_kwh_per_stack        # kWh/d
-    drying_energy = Ga_output * dry_sec                # kWh/d
-    SEC = (electrolysis_energy + pump_energy + drying_energy) / (Q_feed * config.plant_availability)
-
-    return {
-        'electricity': _build_energy_entry(
-            consumption_per_m3=SEC,
-            price_per_unit=config.electricity_price,
-            source='Electrolysis at 9.05 kWh/kg Ga plus pumping at 2.4 kWh/d per stack and drying at 0.1 kWh/kg Ga.',
-        )
-    }
-
-
-def calc_electrowinning_waste_stream(Q_feed, route='IX', config=None):
-    """Return the spent-electrolyte stream from electrowinning."""
-    spec = DOWNSTREAM_SPECS[route]['electrowinning']
-    Volume = spec.constants["volume_factor_l_per_q"] * Q_feed
-    spent_fraction = spec.constants.get("spent_electrolyte_fraction", 0.95)
-    Q_waste = spent_fraction * Volume
-
-    return _annotate_waste_stream(
-        {
-            'volume_per_day': Q_waste,
-            'volume_per_m3_feed': Q_waste / Q_feed,
-            'description': 'Spent electrolyte equal to 95% of the electrowinning feed volume.',
-            'source': 'Electrolyte after one pass through the electrowinning cell.',
-        },
-        scope_note='The spent electrolyte is retained for inventory traceability, but it is not added to active TEA totals.',
-    )
-
-
-def calc_electrowinning_waste_disposal_cost_per_m3(Q_feed, route='IX', config=None):
-    """Return spent-electrolyte disposal cost for electrowinning in ``EUR/m3 feed``.
-
-    Exposes disposal cost for sensitivity analysis and waste-stream inventory only.
-    This function is **not** included in ``calc_total_costs()``; see
-    ``_annotate_waste_stream`` for the ``excluded_from_active_total_costs`` flag.
-    """
-    config = config or DEFAULT_CONFIG
-    spec = DOWNSTREAM_SPECS[route]['electrowinning']
-    Volume = spec.constants["volume_factor_l_per_q"] * Q_feed
-    spent_fraction = spec.constants.get("spent_electrolyte_fraction", 0.95)
-    Q_waste = spent_fraction * Volume / 1000  # m³/d
-    disposal_cost_daily = Q_waste * 1.0       # 1.0 EUR/m³ disposal tariff
-    return disposal_cost_daily / (Q_feed * config.plant_availability)
 
 
 
@@ -2447,11 +1647,11 @@ def calc_electrowinning_waste_disposal_cost_per_m3(Q_feed, route='IX', config=No
 
 
 # ############################################################################
-# PART 4: ROUTE-LEVEL ECONOMICS, PRODUCTION, AND CARBON ACCOUNTING
+# PART 4: ROUTE-LEVEL ECONOMICS AND PRODUCTION
 # ############################################################################
 # This section aggregates step-level costs into route totals, computes the
 # levelized cost of gallium (LCO-Ga), break-even prices, annual production
-# rates, cost-breakdown views, and carbon-accounting functions.
+# rates, and cost-breakdown views.
 # ############################################################################
 
 
@@ -2474,170 +1674,6 @@ def _resolve_route(route: str) -> str:
     return route
 
 
-def _resolve_co2_tax_mode(mode, config=None):
-    """Resolve the active carbon-cost scope while keeping legacy defaults stable."""
-    config = config or DEFAULT_CONFIG
-    resolved = config.co2_tax_mode if mode is None else mode
-    if resolved not in VALID_CO2_TAX_MODES:
-        raise ValueError(
-            f"Unsupported co2_tax_mode: {resolved}. Expected one of {VALID_CO2_TAX_MODES}."
-        )
-    return resolved
-
-
-def _resolve_co2_energy_path(energy_path, config=None):
-    """Resolve the energy-only implementation path for carbon accounting."""
-    config = config or DEFAULT_CONFIG
-    resolved = config.co2_energy_path if energy_path is None else energy_path
-    if resolved not in VALID_CO2_ENERGY_PATHS:
-        raise ValueError(
-            f"Unsupported co2_energy_path: {resolved}. Expected one of {VALID_CO2_ENERGY_PATHS}."
-        )
-    return resolved
-
-
-# ============================================================================
-# STEP ENERGY CONSUMPTION (route-level aggregation)
-# ============================================================================
-
-def calc_step_energy_consumption(Q_feed, route='IX', energy_path=None, config=None):
-    """
-    Return electricity demand by process block in ``kWh/m³ feed``.
-
-    This helper centralizes the route-specific energy graph that is reused by
-    carbon costing, figure generation, and source-audit work.
-
-    The ``energy_path`` parameter controls how SX downstream energy is resolved:
-    - ``'legacy_frozen'``: SX downstream reuses IX energy functions (thesis behavior)
-    - ``'route_consistent'``: SX downstream uses SX-specific energy functions
-    """
-    config = config or DEFAULT_CONFIG
-    route = _resolve_route(route)
-    resolved_energy_path = _resolve_co2_energy_path(energy_path, config)
-
-    energy_by_step = {
-        'Filtration': calc_filtration_energy_consumption(Q_feed, config=config)['electricity']['consumption_per_m3'],
-        'RO_Split': calc_ro_split_energy_consumption(Q_feed, config=config)['electricity']['consumption_per_m3'],
-        'pH_Adjust': calc_ph_adjust_energy_consumption(Q_feed, config=config)['electricity']['consumption_per_m3'],
-    }
-
-    if route == 'IX':
-        energy_by_step.update({
-            'Separation': calc_ix_energy_consumption(Q_feed, config=config)['electricity']['consumption_per_m3'],
-            'Precipitation': calc_precipitation_energy_consumption(Q_feed, route='IX', config=config)['electricity']['consumption_per_m3'],
-            'Selective_Leaching': calc_selective_leaching_energy_consumption(Q_feed, route='IX', config=config)['electricity']['consumption_per_m3'],
-            'Electrowinning': calc_electrowinning_energy_consumption(Q_feed, route='IX', config=config)['electricity']['consumption_per_m3'],
-        })
-        return energy_by_step
-
-    # SX route
-    energy_by_step['Separation'] = calc_sx_energy_consumption(Q_feed, config=config)['electricity']['consumption_per_m3']
-
-    if resolved_energy_path == 'legacy_frozen':
-        # Legacy frozen: SX downstream reuses IX energy functions (thesis behavior)
-        energy_by_step['Precipitation'] = calc_precipitation_energy_consumption(Q_feed, route='IX', config=config)['electricity']['consumption_per_m3']
-        energy_by_step['Selective_Leaching'] = calc_selective_leaching_energy_consumption(Q_feed, route='IX', config=config)['electricity']['consumption_per_m3']
-        energy_by_step['Electrowinning'] = calc_electrowinning_energy_consumption(Q_feed, route='IX', config=config)['electricity']['consumption_per_m3']
-    else:
-        # Route consistent: SX downstream uses SX-specific energy functions
-        energy_by_step['Precipitation'] = calc_precipitation_energy_consumption(Q_feed, route='SX', config=config)['electricity']['consumption_per_m3']
-        energy_by_step['Selective_Leaching'] = calc_selective_leaching_energy_consumption(Q_feed, route='SX', config=config)['electricity']['consumption_per_m3']
-        energy_by_step['Electrowinning'] = calc_electrowinning_energy_consumption(Q_feed, route='SX', config=config)['electricity']['consumption_per_m3']
-
-    return energy_by_step
-
-
-# ============================================================================
-# CARBON ACCOUNTING
-# ============================================================================
-
-def _calc_energy_only_carbon_load_legacy_frozen(Q_feed, route, config=None):
-    """Return the frozen electricity-only carbon load in ``kg CO2eq/m³ feed``."""
-    # NOTE: legacy_frozen path reuses IX downstream energy helpers for SX precipitation/leaching/EW (frozen thesis baseline).
-    config = config or DEFAULT_CONFIG
-    total_energy = sum(
-        calc_step_energy_consumption(Q_feed, route=route, energy_path='legacy_frozen', config=config).values()
-    )
-    return total_energy * config.energy_only_grid_emission_factor
-
-
-def _calc_energy_only_carbon_load_route_consistent(Q_feed, route, config=None):
-    """Return the route-consistent electricity-only carbon load in ``kg CO2eq/m³ feed``."""
-    config = config or DEFAULT_CONFIG
-    total_energy = sum(
-        calc_step_energy_consumption(Q_feed, route=route, energy_path='route_consistent', config=config).values()
-    )
-    return total_energy * config.energy_only_grid_emission_factor
-
-
-def _calc_energy_only_carbon_load_per_m3(Q_feed, route, energy_path, config=None):
-    """Return the electricity-only carbon load for the selected implementation path."""
-    if energy_path == 'legacy_frozen':
-        return _calc_energy_only_carbon_load_legacy_frozen(Q_feed, route, config)
-    if energy_path == 'route_consistent':
-        return _calc_energy_only_carbon_load_route_consistent(Q_feed, route, config)
-    raise ValueError(
-        f"Unsupported co2_energy_path: {energy_path}. Expected one of {VALID_CO2_ENERGY_PATHS}."
-    )
-
-
-def _load_lca_aggregation_module():
-    """Return the ``lca_aggregation`` module (lazy, path-safe)."""
-    return _lazy_load_lca_module("lca_aggregation")
-
-
-def _calc_full_lca_carbon_load_per_m3(Q_feed, route, config=None):
-    """
-    Return the modeled LCA carbon load in ``kg CO2eq/m³ feed``.
-
-    This is a shadow-price-ready bridge to the repository's current LCA scope.
-    It should be interpreted as the modeled cradle-to-gate carbon load covered
-    by the active LCI implementation, not as a universal cradle-to-grave claim.
-    """
-    route = _resolve_route(route)
-    lca = _load_lca_aggregation_module()
-    return lca.calc_lca_gwp_total_per_m3_feed(Q_feed, route)
-
-
-def calc_carbon_load_per_m3(Q_feed, route='IX', mode=None, energy_path=None, config=None):
-    """
-    Return the modeled carbon load in ``kg CO2eq/m³ feed`` for the active scope.
-
-    Scope interpretation:
-    - ``none``: return ``0.0`` because no carbon-cost scope is active
-    - ``energy_only``: electricity-only carbon-load proxy
-    - ``full_lca``: full modeled LCA carbon load from the repository LCA bridge
-    """
-    config = config or DEFAULT_CONFIG
-    resolved_mode = _resolve_co2_tax_mode(mode, config)
-
-    if resolved_mode == 'none':
-        return 0.0
-    if resolved_mode == 'energy_only':
-        resolved_energy_path = _resolve_co2_energy_path(energy_path, config)
-        return _calc_energy_only_carbon_load_per_m3(Q_feed, route, resolved_energy_path, config)
-    if resolved_mode == 'full_lca':
-        return _calc_full_lca_carbon_load_per_m3(Q_feed, route, config)
-    raise ValueError(
-        f"Unsupported co2_tax_mode: {resolved_mode}. Expected one of {VALID_CO2_TAX_MODES}."
-    )
-
-
-def calc_co2_tax_per_m3(Q_feed, route='IX', mode=None, energy_path=None, config=None):
-    """
-    Return the carbon-cost contribution in ``EUR/m³ feed`` for the selected scope.
-
-    Method note:
-    - ``energy_only`` prices only electricity-related carbon load.
-    - ``full_lca`` prices the modeled LCA carbon load as a shadow-price block.
-    - The frozen thesis baseline remains ``energy_only`` with
-      ``co2_energy_path='legacy_frozen'``.
-    """
-    config = config or DEFAULT_CONFIG
-    carbon_load = calc_carbon_load_per_m3(
-        Q_feed, route=route, mode=mode, energy_path=energy_path, config=config,
-    )
-    return carbon_load * config.co2_tax_per_ton / 1000
 
 
 # ============================================================================
@@ -2661,9 +1697,6 @@ def calc_total_costs(Q_feed, route='IX', config=None):
     must apply the relevant multipliers themselves; callers that only need the
     aggregate should read from ``costs['Total']``.
 
-    The returned ``CO2_Tax`` block remains the frozen public key for all carbon
-    scopes. Under ``full_lca`` it represents a shadow-priced carbon-cost block
-    based on the repository's modeled LCA carbon load.
     """
     config = config or DEFAULT_CONFIG
     route = _resolve_route(route)
@@ -2726,23 +1759,19 @@ def calc_total_costs(Q_feed, route='IX', config=None):
     total_opex = sum(v['OpEx'] for v in costs.values())
     labour_costs = calc_labour_costs_per_m3(Q_feed, config=config)
 
-    # Carbon-cost block
-    co2_tax = calc_co2_tax_per_m3(Q_feed, route=route, config=config)
-
     # Apply scenario multipliers
     total_capex = total_capex * config.capex_multiplier
     total_rep = total_rep * config.rep_multiplier
     labour_costs = labour_costs * config.labour_multiplier
 
-    # Total cost = CapEx + replacement + OpEx + labour + CO2 tax
-    total_cost = total_capex + total_rep + total_opex + labour_costs + co2_tax
+    # Total cost = CapEx + replacement + OpEx + labour
+    total_cost = total_capex + total_rep + total_opex + labour_costs
 
     costs['Total'] = {
         'CapEx': total_capex,
         'REP': total_rep,
         'OpEx': total_opex,
         'Labour': labour_costs,
-        'CO2_Tax': co2_tax,
         'Total': total_cost,
     }
 
@@ -2823,7 +1852,7 @@ def calc_cost_breakdown(Q_feed, route='IX', config=None):
     Return the reporting-oriented cost-block breakdown for the selected route.
 
     Groups costs into CapEx-Sep, CapEx-Other, OpEx, Repl-Sep, Repl-Other,
-    Labour, and CO2_Tax blocks matching the thesis figure conventions.
+    and Labour blocks matching the paper figure conventions.
     """
     config = config or DEFAULT_CONFIG
     route = _resolve_route(route)
@@ -2862,9 +1891,7 @@ def calc_cost_breakdown(Q_feed, route='IX', config=None):
         costs['Filtration']['REP'] + costs['RO_Split']['REP']
     ) * config.rep_multiplier
 
-    # Labour and CO2 tax: separate reporting blocks
     labour = costs['Total']['Labour']
-    co2_tax = costs['Total']['CO2_Tax']
 
     return {
         'CapEx-Sep': capex_sep,
@@ -2873,7 +1900,6 @@ def calc_cost_breakdown(Q_feed, route='IX', config=None):
         'Repl-Sep': repl_sep,
         'Repl-Other': repl_other,
         'Labour': labour,
-        'CO2_Tax': co2_tax,
     }
 
 

@@ -2,7 +2,6 @@
 """ESCAPE 36 Figure 3: Cost breakdown (stacked bar) at Q=10 and Q=100.
 
 Relative contribution to LCOGa: CapEx, OpEx, Replacement, Labour.
-No CO2_Tax (ESCAPE baseline has co2_tax_mode='none').
 """
 
 from __future__ import annotations
@@ -69,7 +68,7 @@ def main():
         cb = tea.calc_cost_breakdown(q, route=route, config=config)
         capex = cb["CapEx-Sep"] + cb["CapEx-Other"]
         repl = cb["Repl-Sep"] + cb["Repl-Other"]
-        total = capex + cb["OpEx"] + repl + cb["Labour"] + cb["CO2_Tax"]
+        total = capex + cb["OpEx"] + repl + cb["Labour"]
         pct_by_bar.append({
             "CapEx": capex / total * 100,
             "OpEx": cb["OpEx"] / total * 100,
